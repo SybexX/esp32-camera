@@ -33,7 +33,7 @@
 #define ESP_CACHE_MSYNC_FLAG_DIR_M2C 0
 #endif
 #if CONFIG_IDF_TARGET_ESP32
-#include "esp32/rom/ets_sys.h"  // will be removed in idf v5.0
+#include "esp32/rom/ets_sys.h" // will be removed in idf v5.0
 #elif CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/ets_sys.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
@@ -48,9 +48,9 @@
 #endif
 
 #if CONFIG_CAMERA_TASK_STACK_SIZE
-#define CAM_TASK_STACK             CONFIG_CAMERA_TASK_STACK_SIZE
+#define CAM_TASK_STACK CONFIG_CAMERA_TASK_STACK_SIZE
 #else
-#define CAM_TASK_STACK             (4*1024)
+#define CAM_TASK_STACK (4 * 1024)
 #endif
 
 static const char *TAG = "cam_hal";
@@ -66,7 +66,7 @@ static portMUX_TYPE g_psram_dma_lock = portMUX_INITIALIZER_UNLOCKED;
 
 /* At top of cam_hal.c – one switch for noisy ISR prints */
 #ifndef CAM_LOG_SPAM_EVERY_FRAME
-#define CAM_LOG_SPAM_EVERY_FRAME 0   /* set to 1 to restore old behaviour */
+#define CAM_LOG_SPAM_EVERY_FRAME 0 /* set to 1 to restore old behaviour */
 #endif
 
 /* Number of bytes copied to SRAM for SOI validation when capturing
@@ -106,8 +106,7 @@ static inline void cam_drop_psram_cache(void *addr, size_t len)
     }
     uintptr_t start = (uintptr_t)addr & ~(line - 1);
     size_t sync_len = (len + ((uintptr_t)addr - start) + line - 1) & ~(line - 1);
-    esp_cache_msync((void *)start, sync_len,
-                    ESP_CACHE_MSYNC_FLAG_DIR_M2C | ESP_CACHE_MSYNC_FLAG_INVALIDATE);
+    esp_cache_msync((void *)start, sync_len, ESP_CACHE_MSYNC_FLAG_DIR_M2C | ESP_CACHE_MSYNC_FLAG_INVALIDATE);
 }
 
 /* Throttle repeated warnings printed from tight loops / ISRs.
@@ -116,23 +115,29 @@ static inline void cam_drop_psram_cache(void *addr, size_t len)
  * first   – literal C string shown on first hit and as prefix of summaries
  */
 #if CONFIG_LOG_DEFAULT_LEVEL >= 2
-#define CAM_WARN_THROTTLE(counter, first)                                  \
-    do {                                                                  \
-        if (++(counter) == 1) {                                           \
-            ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: %s\r\n"), first);        \
-        } else if ((counter) % 100 == 0) {                                \
-            ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: %s - 100 additional misses\r\n"), first); \
-        }                                                                 \
-        if ((counter) == 10000) (counter) = 1;                            \
+#define CAM_WARN_THROTTLE(counter, first)                                                                                                  \
+    do {                                                                                                                                   \
+        if (++(counter) == 1) {                                                                                                            \
+            ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: %s\r\n"), first);                                                                     \
+        }                                                                                                                                  \
+        else if ((counter) % 100 == 0) {                                                                                                   \
+            ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: %s - 100 additional misses\r\n"), first);                                             \
+        }                                                                                                                                  \
+        if ((counter) == 10000) {                                                                                                          \
+            (counter) = 1;                                                                                                                 \
+        }                                                                                                                                  \
     } while (0)
 #else
-#define CAM_WARN_THROTTLE(counter, first) do { (void)(counter); } while (0)
+#define CAM_WARN_THROTTLE(counter, first)                                                                                                  \
+    do {                                                                                                                                   \
+        (void)(counter);                                                                                                                   \
+    } while (0)
 #endif
 
 /* JPEG markers (byte-order independent). */
 static const uint8_t JPEG_SOI_MARKER[] = {0xFF, 0xD8, 0xFF}; /* SOI = FF D8 FF */
 #define JPEG_SOI_MARKER_LEN (3)
-static const uint8_t JPEG_EOI_BYTES[] = {0xFF, 0xD9};        /* EOI = FF D9 */
+static const uint8_t JPEG_EOI_BYTES[] = {0xFF, 0xD9}; /* EOI = FF D9 */
 #define JPEG_EOI_MARKER_LEN (2)
 
 /* Compute the scan window for JPEG EOI detection in PSRAM. */
@@ -146,20 +151,18 @@ static int cam_verify_jpeg_soi(const uint8_t *inbuf, uint32_t length)
 {
     static uint16_t warn_soi_miss_cnt = 0;
     if (length < JPEG_SOI_MARKER_LEN) {
-        CAM_WARN_THROTTLE(warn_soi_miss_cnt,
-                          "NO-SOI - JPEG start marker missing (len < 3b)");
+        CAM_WARN_THROTTLE(warn_soi_miss_cnt, "NO-SOI - JPEG start marker missing (len < 3b)");
         return -1;
     }
 
     for (uint32_t i = 0; i <= length - JPEG_SOI_MARKER_LEN; i++) {
         if (memcmp(&inbuf[i], JPEG_SOI_MARKER, JPEG_SOI_MARKER_LEN) == 0) {
-            //ESP_LOGW(TAG, "SOI: %d", (int) i);
+            // ESP_LOGW(TAG, "SOI: %d", (int) i);
             return i;
         }
     }
 
-    CAM_WARN_THROTTLE(warn_soi_miss_cnt,
-                      "NO-SOI - JPEG start marker missing");
+    CAM_WARN_THROTTLE(warn_soi_miss_cnt, "NO-SOI - JPEG start marker missing");
     return -1;
 }
 
@@ -182,14 +185,13 @@ static int cam_verify_jpeg_eoi(const uint8_t *inbuf, uint32_t length, bool searc
         uint32_t i = 0;
         while (i + 4 <= length) {
             uint32_t w;
-            memcpy(&w, inbuf + i, 4); /* unaligned load is allowed */
-            uint32_t x = w ^ A; /* identify bytes equal to first marker byte */
+            memcpy(&w, inbuf + i, 4);             /* unaligned load is allowed */
+            uint32_t x = w ^ A;                   /* identify bytes equal to first marker byte */
             uint32_t m = (~x & (x - ONE)) & HIGH; /* mask has high bit set for candidate bytes */
-            while (m) { /* handle only candidates to avoid unnecessary memcmp calls */
+            while (m) {                           /* handle only candidates to avoid unnecessary memcmp calls */
                 unsigned off = __builtin_ctz(m) >> 3;
                 uint32_t pos = i + off;
-                if (pos + JPEG_EOI_MARKER_LEN <= length &&
-                    memcmp(inbuf + pos, pat, JPEG_EOI_MARKER_LEN) == 0) {
+                if (pos + JPEG_EOI_MARKER_LEN <= length && memcmp(inbuf + pos, pat, JPEG_EOI_MARKER_LEN) == 0) {
                     return pos;
                 }
                 m &= m - 1; /* clear processed candidate */
@@ -217,25 +219,26 @@ static int cam_verify_jpeg_eoi(const uint8_t *inbuf, uint32_t length, bool searc
     return -1;
 }
 
-static bool cam_get_next_frame(int * frame_pos)
+static bool cam_get_next_frame(int *frame_pos)
 {
-    if(!cam_obj->frames[*frame_pos].en){
+    if (!cam_obj->frames[*frame_pos].en) {
         for (int x = 0; x < cam_obj->frame_cnt; x++) {
             if (cam_obj->frames[x].en) {
                 *frame_pos = x;
                 return true;
             }
         }
-    } else {
+    }
+    else {
         return true;
     }
     return false;
 }
 
-static bool cam_start_frame(int * frame_pos)
+static bool cam_start_frame(int *frame_pos)
 {
     if (cam_get_next_frame(frame_pos)) {
-        if(ll_cam_start(cam_obj, *frame_pos)){
+        if (ll_cam_start(cam_obj, *frame_pos)) {
             // Vsync the frame manually
             ll_cam_do_vsync(cam_obj);
             uint64_t us = (uint64_t)esp_timer_get_time();
@@ -247,22 +250,21 @@ static bool cam_start_frame(int * frame_pos)
     return false;
 }
 
-void IRAM_ATTR ll_cam_send_event(cam_obj_t *cam, cam_event_t cam_event, BaseType_t * HPTaskAwoken)
+void IRAM_ATTR ll_cam_send_event(cam_obj_t *cam, cam_event_t cam_event, BaseType_t *HPTaskAwoken)
 {
     if (xQueueSendFromISR(cam->event_queue, (void *)&cam_event, HPTaskAwoken) != pdTRUE) {
         ll_cam_stop(cam);
         cam->state = CAM_STATE_IDLE;
 #if CAM_LOG_SPAM_EVERY_FRAME
-        ESP_DRAM_LOGD(TAG, "EV-%s-OVF", cam_event==CAM_IN_SUC_EOF_EVENT ? "EOF" : "VSYNC");
+        ESP_DRAM_LOGD(TAG, "EV-%s-OVF", cam_event == CAM_IN_SUC_EOF_EVENT ? "EOF" : "VSYNC");
 #else
         static uint16_t ovf_cnt = 0;
-        CAM_WARN_THROTTLE(ovf_cnt,
-                          cam_event==CAM_IN_SUC_EOF_EVENT ? "EV-EOF-OVF" : "EV-VSYNC-OVF");
+        CAM_WARN_THROTTLE(ovf_cnt, cam_event == CAM_IN_SUC_EOF_EVENT ? "EV-EOF-OVF" : "EV-VSYNC-OVF");
 #endif
     }
 }
 
-//Copy fram from DMA dma_buffer to fram dma_buffer
+// Copy fram from DMA dma_buffer to fram dma_buffer
 static void cam_task(void *arg)
 {
     int cnt = 0;
@@ -279,32 +281,33 @@ static void cam_task(void *arg)
 
             case CAM_STATE_IDLE: {
                 if (cam_event == CAM_VSYNC_EVENT) {
-                    //DBG_PIN_SET(1);
-                    if(cam_start_frame(&frame_pos)){
+                    // DBG_PIN_SET(1);
+                    if (cam_start_frame(&frame_pos)) {
                         cam_obj->frames[frame_pos].fb.len = 0;
                         cam_obj->state = CAM_STATE_READ_BUF;
                     }
                     cnt = 0;
                 }
-            }
-            break;
+            } break;
 
             case CAM_STATE_READ_BUF: {
-                camera_fb_t * frame_buffer_event = &cam_obj->frames[frame_pos].fb;
-                size_t pixels_per_dma = (cam_obj->dma_half_buffer_size * cam_obj->fb_bytes_per_pixel) / (cam_obj->dma_bytes_per_item * cam_obj->in_bytes_per_pixel);
+                camera_fb_t *frame_buffer_event = &cam_obj->frames[frame_pos].fb;
+                size_t pixels_per_dma = (cam_obj->dma_half_buffer_size * cam_obj->fb_bytes_per_pixel) /
+                                        (cam_obj->dma_bytes_per_item * cam_obj->in_bytes_per_pixel);
 
                 if (cam_event == CAM_IN_SUC_EOF_EVENT) {
-                    if(!cam_obj->psram_mode){
+                    if (!cam_obj->psram_mode) {
                         if (cam_obj->fb_size < (frame_buffer_event->len + pixels_per_dma)) {
                             ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: FB-OVF\r\n"));
                             ll_cam_stop(cam_obj);
                             continue;
                         }
-                        frame_buffer_event->len += ll_cam_memcpy(cam_obj,
-                            &frame_buffer_event->buf[frame_buffer_event->len],
-                            &cam_obj->dma_buffer[(cnt % cam_obj->dma_half_buffer_cnt) * cam_obj->dma_half_buffer_size],
-                            cam_obj->dma_half_buffer_size);
-                    } else {
+                        frame_buffer_event->len +=
+                            ll_cam_memcpy(cam_obj, &frame_buffer_event->buf[frame_buffer_event->len],
+                                          &cam_obj->dma_buffer[(cnt % cam_obj->dma_half_buffer_cnt) * cam_obj->dma_half_buffer_size],
+                                          cam_obj->dma_half_buffer_size);
+                    }
+                    else {
                         // stop if the next DMA copy would exceed the framebuffer slot
                         // size, since we're called only after the copy occurs
                         // This effectively reduces maximum usable frame buffer size
@@ -318,7 +321,7 @@ static void cam_task(void *arg)
                         }
                     }
 
-                    //Check for JPEG SOI in the first buffer. stop if not found
+                    // Check for JPEG SOI in the first buffer. stop if not found
                     if (cam_obj->jpeg_mode && cnt == 0) {
                         if (cam_obj->psram_mode) {
                             /* dma_half_buffer_size already in BYTES (see ll_cam_memcpy()) */
@@ -336,26 +339,25 @@ static void cam_task(void *arg)
                             if (soi_off != 0) {
                                 static uint16_t warn_psram_soi_cnt = 0;
                                 if (soi_off > 0) {
-                                    CAM_WARN_THROTTLE(warn_psram_soi_cnt,
-                                                      "NO-SOI - JPEG start marker not at pos 0 (PSRAM)");
-                                } else {
-                                    CAM_WARN_THROTTLE(warn_psram_soi_cnt,
-                                                      "NO-SOI - JPEG start marker missing (PSRAM)");
+                                    CAM_WARN_THROTTLE(warn_psram_soi_cnt, "NO-SOI - JPEG start marker not at pos 0 (PSRAM)");
+                                }
+                                else {
+                                    CAM_WARN_THROTTLE(warn_psram_soi_cnt, "NO-SOI - JPEG start marker missing (PSRAM)");
                                 }
                                 ll_cam_stop(cam_obj);
                                 cam_obj->state = CAM_STATE_IDLE;
                                 continue;
                             }
-                        } else {
+                        }
+                        else {
                             int soi_off = cam_verify_jpeg_soi(frame_buffer_event->buf, frame_buffer_event->len);
                             if (soi_off != 0) {
                                 static uint16_t warn_soi_bad_cnt = 0;
                                 if (soi_off > 0) {
-                                    CAM_WARN_THROTTLE(warn_soi_bad_cnt,
-                                                      "NO-SOI - JPEG start marker not at pos 0");
-                                } else {
-                                    CAM_WARN_THROTTLE(warn_soi_bad_cnt,
-                                                      "NO-SOI - JPEG start marker missing");
+                                    CAM_WARN_THROTTLE(warn_soi_bad_cnt, "NO-SOI - JPEG start marker not at pos 0");
+                                }
+                                else {
+                                    CAM_WARN_THROTTLE(warn_soi_bad_cnt, "NO-SOI - JPEG start marker missing");
                                 }
                                 ll_cam_stop(cam_obj);
                                 cam_obj->state = CAM_STATE_IDLE;
@@ -365,9 +367,9 @@ static void cam_task(void *arg)
                     }
 
                     cnt++;
-
-                } else if (cam_event == CAM_VSYNC_EVENT) {
-                    //DBG_PIN_SET(1);
+                }
+                else if (cam_event == CAM_VSYNC_EVENT) {
+                    // DBG_PIN_SET(1);
                     ll_cam_stop(cam_obj);
 
                     if (cnt || !cam_obj->jpeg_mode || cam_obj->psram_mode) {
@@ -376,9 +378,10 @@ static void cam_task(void *arg)
                                 if (cam_obj->fb_size < (frame_buffer_event->len + pixels_per_dma)) {
                                     ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: FB-OVF\r\n"));
                                     cnt--;
-                                } else {
-                                    frame_buffer_event->len += ll_cam_memcpy(cam_obj,
-                                        &frame_buffer_event->buf[frame_buffer_event->len],
+                                }
+                                else {
+                                    frame_buffer_event->len += ll_cam_memcpy(
+                                        cam_obj, &frame_buffer_event->buf[frame_buffer_event->len],
                                         &cam_obj->dma_buffer[(cnt % cam_obj->dma_half_buffer_cnt) * cam_obj->dma_half_buffer_size],
                                         cam_obj->dma_half_buffer_size);
                                 }
@@ -391,50 +394,54 @@ static void cam_task(void *arg)
                         if (cam_obj->psram_mode) {
                             if (cam_obj->jpeg_mode) {
                                 frame_buffer_event->len = cnt * cam_obj->dma_half_buffer_size;
-                            } else {
+                            }
+                            else {
                                 frame_buffer_event->len = cam_obj->recv_size;
                             }
-                        } else if (!cam_obj->jpeg_mode) {
+                        }
+                        else if (!cam_obj->jpeg_mode) {
                             if (frame_buffer_event->len != cam_obj->fb_size) {
                                 cam_obj->frames[frame_pos].en = 1;
-                                ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: FB-SIZE: %u != %u\r\n"), frame_buffer_event->len, (unsigned) cam_obj->fb_size);
+                                ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: FB-SIZE: %u != %u\r\n"), frame_buffer_event->len,
+                                                      (unsigned)cam_obj->fb_size);
                             }
                         }
-                        //send frame
-                        if(!cam_obj->frames[frame_pos].en && xQueueSend(cam_obj->frame_buffer_queue, (void *)&frame_buffer_event, 0) != pdTRUE) {
-                            //pop frame buffer from the queue
-                            camera_fb_t * fb2 = NULL;
-                            if(xQueueReceive(cam_obj->frame_buffer_queue, &fb2, 0) == pdTRUE) {
-                                //push the new frame to the end of the queue
+                        // send frame
+                        if (!cam_obj->frames[frame_pos].en && xQueueSend(cam_obj->frame_buffer_queue, (void *)&frame_buffer_event, 0) != pdTRUE) {
+                            // pop frame buffer from the queue
+                            camera_fb_t *fb2 = NULL;
+                            if (xQueueReceive(cam_obj->frame_buffer_queue, &fb2, 0) == pdTRUE) {
+                                // push the new frame to the end of the queue
                                 if (xQueueSend(cam_obj->frame_buffer_queue, (void *)&frame_buffer_event, 0) != pdTRUE) {
                                     cam_obj->frames[frame_pos].en = 1;
                                     ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: FBQ-SND\r\n"));
                                 }
-                                //free the popped buffer
+                                // free the popped buffer
                                 cam_give(fb2);
-                            } else {
-                                //queue is full and we could not pop a frame from it
+                            }
+                            else {
+                                // queue is full and we could not pop a frame from it
                                 cam_obj->frames[frame_pos].en = 1;
                                 ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: FBQ-RCV\r\n"));
                             }
                         }
                     }
 
-                    if(!cam_start_frame(&frame_pos)){
+                    if (!cam_start_frame(&frame_pos)) {
                         cam_obj->state = CAM_STATE_IDLE;
-                    } else {
+                    }
+                    else {
                         cam_obj->frames[frame_pos].fb.len = 0;
                     }
                     cnt = 0;
                 }
-            }
-            break;
+            } break;
         }
         DBG_PIN_SET(0);
     }
 }
 
-static lldesc_t * allocate_dma_descriptors(uint32_t count, uint16_t size, uint8_t * buffer)
+static lldesc_t *allocate_dma_descriptors(uint32_t count, uint16_t size, uint8_t *buffer)
 {
     lldesc_t *dma = (lldesc_t *)heap_caps_malloc(count * sizeof(lldesc_t), MALLOC_CAP_DMA);
     if (dma == NULL) {
@@ -455,20 +462,19 @@ static lldesc_t * allocate_dma_descriptors(uint32_t count, uint16_t size, uint8_
 
 static esp_err_t cam_dma_config(const camera_config_t *config)
 {
-    bool ret = ll_cam_dma_sizes(cam_obj);
-    if (0 == ret) {
+    if (!ll_cam_dma_sizes(cam_obj)) {
         return ESP_FAIL;
     }
 
     cam_obj->dma_node_cnt = (cam_obj->dma_buffer_size) / cam_obj->dma_node_buffer_size; // Number of DMA nodes
-    cam_obj->frame_copy_cnt = cam_obj->recv_size / cam_obj->dma_half_buffer_size; // Number of interrupted copies, ping-pong copy
+    cam_obj->frame_copy_cnt = cam_obj->recv_size / cam_obj->dma_half_buffer_size;       // Number of interrupted copies, ping-pong copy
     if (cam_obj->psram_mode) {
         cam_obj->frame_copy_cnt++;
     }
 
-    ESP_LOGI(TAG, "buffer_size: %d, half_buffer_size: %d, node_buffer_size: %d, node_cnt: %d, total_cnt: %d",
-             (int) cam_obj->dma_buffer_size, (int) cam_obj->dma_half_buffer_size, (int) cam_obj->dma_node_buffer_size,
-             (int) cam_obj->dma_node_cnt, (int) cam_obj->frame_copy_cnt);
+    ESP_LOGI(TAG, "buffer_size: %d, half_buffer_size: %d, node_buffer_size: %d, node_cnt: %d, total_cnt: %d", (int)cam_obj->dma_buffer_size,
+             (int)cam_obj->dma_half_buffer_size, (int)cam_obj->dma_node_buffer_size, (int)cam_obj->dma_node_cnt,
+             (int)cam_obj->frame_copy_cnt);
 
     cam_obj->dma_buffer = NULL;
     cam_obj->dma = NULL;
@@ -491,7 +497,8 @@ static esp_err_t cam_dma_config(const camera_config_t *config)
     uint32_t _caps = MALLOC_CAP_8BIT;
     if (CAMERA_FB_IN_DRAM == config->fb_location) {
         _caps |= MALLOC_CAP_INTERNAL;
-    } else {
+    }
+    else {
         _caps |= MALLOC_CAP_SPIRAM;
     }
     for (int x = 0; x < cam_obj->frame_cnt; x++) {
@@ -508,10 +515,10 @@ static esp_err_t cam_dma_config(const camera_config_t *config)
 #endif
         CAM_CHECK(cam_obj->frames[x].fb.buf != NULL, "frame buffer malloc failed", ESP_FAIL);
         if (cam_obj->psram_mode) {
-            //align PSRAM buffer. TODO: save the offset so proper address can be freed later
+            // align PSRAM buffer. TODO: save the offset so proper address can be freed later
             cam_obj->frames[x].fb_offset = dma_align - ((uint32_t)cam_obj->frames[x].fb.buf & (dma_align - 1));
             cam_obj->frames[x].fb.buf += cam_obj->frames[x].fb_offset;
-            ESP_LOGI(TAG, "Frame[%d]: Offset: %u, Addr: 0x%08X", x, cam_obj->frames[x].fb_offset, (unsigned) cam_obj->frames[x].fb.buf);
+            ESP_LOGI(TAG, "Frame[%d]: Offset: %u, Addr: 0x%08X", x, cam_obj->frames[x].fb_offset, (unsigned)cam_obj->frames[x].fb.buf);
             cam_obj->frames[x].dma = allocate_dma_descriptors(cam_obj->dma_node_cnt, cam_obj->dma_node_buffer_size, cam_obj->frames[x].fb.buf);
             CAM_CHECK(cam_obj->frames[x].dma != NULL, "frame dma malloc failed", ESP_FAIL);
         }
@@ -520,9 +527,9 @@ static esp_err_t cam_dma_config(const camera_config_t *config)
 
     if (!cam_obj->psram_mode) {
         cam_obj->dma_buffer = (uint8_t *)heap_caps_malloc(cam_obj->dma_buffer_size * sizeof(uint8_t), MALLOC_CAP_DMA);
-        if(NULL == cam_obj->dma_buffer) {
-            ESP_LOGE(TAG,"%s(%d): DMA buffer %d Byte malloc failed, the current largest free block:%d Byte", __FUNCTION__, __LINE__,
-                     (int) cam_obj->dma_buffer_size, (int) heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+        if (NULL == cam_obj->dma_buffer) {
+            ESP_LOGE(TAG, "%s(%d): DMA buffer %d Byte malloc failed, the current largest free block:%d Byte", __FUNCTION__, __LINE__,
+                     (int)cam_obj->dma_buffer_size, (int)heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
             return ESP_FAIL;
         }
 
@@ -571,26 +578,28 @@ esp_err_t cam_config(const camera_config_t *config, framesize_t frame_size, uint
 
     ret = ll_cam_set_sample_mode(cam_obj, (pixformat_t)config->pixel_format, config->xclk_freq_hz, sensor_pid);
     CAM_CHECK_GOTO(ret == ESP_OK, "ll_cam_set_sample_mode failed", err);
-    
+
     cam_obj->jpeg_mode = config->pixel_format == PIXFORMAT_JPEG;
 #if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
     cam_obj->psram_mode = g_psram_dma_mode;
+    ESP_LOGI(TAG, "PSRAM DMA mode %s", cam_obj->psram_mode ? "enabled" : "disabled");
 #else
     cam_obj->psram_mode = false;
+    ESP_LOGI(TAG, "PSRAM DMA mode disabled, is only supported by ESP32-S2 and ESP32-S3");
 #endif
-    ESP_LOGI(TAG, "PSRAM DMA mode %s", cam_obj->psram_mode ? "enabled" : "disabled");
     cam_obj->frame_cnt = config->fb_count;
     cam_obj->width = resolution[frame_size].width;
     cam_obj->height = resolution[frame_size].height;
 
-    if(cam_obj->jpeg_mode){
+    if (cam_obj->jpeg_mode) {
 #ifdef CONFIG_CAMERA_JPEG_MODE_FRAME_SIZE_AUTO
         cam_obj->recv_size = cam_obj->width * cam_obj->height / 5;
 #else
         cam_obj->recv_size = CONFIG_CAMERA_JPEG_MODE_FRAME_SIZE;
 #endif
         cam_obj->fb_size = cam_obj->recv_size;
-    } else {
+    }
+    else {
         cam_obj->recv_size = cam_obj->width * cam_obj->height * cam_obj->in_bytes_per_pixel;
         cam_obj->fb_size = cam_obj->width * cam_obj->height * cam_obj->fb_bytes_per_pixel;
     }
@@ -609,7 +618,7 @@ esp_err_t cam_config(const camera_config_t *config, framesize_t frame_size, uint
     if (config->grab_mode == CAMERA_GRAB_LATEST && cam_obj->frame_cnt > 1) {
         frame_buffer_queue_len = cam_obj->frame_cnt - 1;
     }
-    cam_obj->frame_buffer_queue = xQueueCreate(frame_buffer_queue_len, sizeof(camera_fb_t*));
+    cam_obj->frame_buffer_queue = xQueueCreate(frame_buffer_queue_len, sizeof(camera_fb_t *));
     CAM_CHECK_GOTO(cam_obj->frame_buffer_queue != NULL, "frame_buffer_queue create failed", err);
 
     ret = ll_cam_init_isr(cam_obj);
@@ -697,8 +706,7 @@ camera_fb_t *cam_take(TickType_t timeout)
     /* throttle repeated NO-EOI warnings */
     static uint16_t warn_eoi_miss_cnt = 0;
 
-    for (;;)
-    {
+    for (;;) {
         TickType_t elapsed = xTaskGetTickCount() - start; /* TickType_t is unsigned so rollover is safe */
         if (elapsed >= timeout) {
             ESP_LOGW(TAG, "Failed to get frame: timeout");
@@ -720,17 +728,15 @@ camera_fb_t *cam_take(TickType_t timeout)
                 continue; /* retry with queue timeout */
             }
             if (dma_reset_counter == MAX_GDMA_RESETS) {
-                ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: Giving up GDMA reset after %u tries\r\n"),
-                                     (unsigned) dma_reset_counter);
+                ESP_CAMERA_ETS_PRINTF(DRAM_STR("cam_hal: Giving up GDMA reset after %u tries\r\n"), (unsigned)dma_reset_counter);
                 dma_reset_counter++; /* suppress further logs */
             }
 #else
             /* Early warning for misbehaving sensors on other chips */
-            CAM_WARN_THROTTLE(warn_null_cnt,
-                              "Unexpected NULL frame on " CONFIG_IDF_TARGET);
+            CAM_WARN_THROTTLE(warn_null_cnt, "Unexpected NULL frame on " CONFIG_IDF_TARGET);
 #endif
             vTaskDelay(1); /* immediate yield once resets are done */
-            continue;             /* go to top of loop */
+            continue;      /* go to top of loop */
         }
 
         if (cam_obj->jpeg_mode) {
@@ -740,8 +746,7 @@ camera_fb_t *cam_take(TickType_t timeout)
                 /* Search forward from (JPEG_EOI_MARKER_LEN - 1) bytes before the final
                  * DMA block. We prefer forward search to pick the earliest EOI in the
                  * last DMA node, avoiding stale markers from a larger prior frame. */
-                size_t probe_len = eoi_probe_window(cam_obj->dma_node_buffer_size,
-                                                   dma_buffer->len);
+                size_t probe_len = eoi_probe_window(cam_obj->dma_node_buffer_size, dma_buffer->len);
                 if (probe_len < JPEG_EOI_MARKER_LEN) {
                     goto skip_eoi_check;
                 }
@@ -751,7 +756,8 @@ camera_fb_t *cam_take(TickType_t timeout)
                 if (off >= 0) {
                     offset_e = dma_buffer->len - probe_len + off;
                 }
-            } else {
+            }
+            else {
                 offset_e = cam_verify_jpeg_eoi(dma_buffer->buf, dma_buffer->len, false);
             }
 
@@ -764,14 +770,13 @@ camera_fb_t *cam_take(TickType_t timeout)
                 return dma_buffer;
             }
 
-skip_eoi_check:
+        skip_eoi_check:
 
-            CAM_WARN_THROTTLE(warn_eoi_miss_cnt,
-                              "NO-EOI - JPEG end marker missing");
+            CAM_WARN_THROTTLE(warn_eoi_miss_cnt, "NO-EOI - JPEG end marker missing");
             cam_give(dma_buffer);
             continue; /* wait for another frame */
-        } else if (cam_obj->psram_mode &&
-                   cam_obj->in_bytes_per_pixel != cam_obj->fb_bytes_per_pixel) {
+        }
+        else if (cam_obj->psram_mode && cam_obj->in_bytes_per_pixel != cam_obj->fb_bytes_per_pixel) {
             /* currently used only for YUV to GRAYSCALE */
             dma_buffer->len = ll_cam_memcpy(cam_obj, dma_buffer->buf, dma_buffer->buf, dma_buffer->len);
         }
@@ -795,7 +800,8 @@ void cam_give(camera_fb_t *dma_buffer)
     }
 }
 
-void cam_give_all(void) {
+void cam_give_all(void)
+{
     for (int x = 0; x < cam_obj->frame_cnt; x++) {
         cam_obj->frames[x].en = 1;
     }

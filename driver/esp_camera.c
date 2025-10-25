@@ -262,7 +262,8 @@ static esp_err_t camera_probe(const camera_config_t *config, camera_model_t *out
         }
     }
 
-    if (CAMERA_NONE == *out_camera_model) { //If no supported sensors are detected
+    if (*out_camera_model == CAMERA_NONE) { 
+        //If no supported sensors are detected
         ESP_LOGE(TAG, "Detected camera not supported.");
         ret = ESP_ERR_NOT_SUPPORTED;
         goto err;
