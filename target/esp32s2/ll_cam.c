@@ -35,7 +35,6 @@
 
 #if (ESP_IDF_VERSION_MAJOR > 5)
 #include "soc/dport_access.h"
-#include "soc/gpio_sig_map.h"
 #endif
 
 static const char *TAG = "s2 ll_cam";
